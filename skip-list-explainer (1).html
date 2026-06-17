@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Skip List — A Visual Explainer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#FAF9F5;
+    --surface:#FFFFFF;
+    --ink:#2A2723;
+    --muted:#6F6A60;
+    --line:#E8E3D8;
+    --accent:#C96442;
+    --accent-soft:#F3E2DA;
+    --lane:#EFEBE1;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Inter',-apple-system,sans-serif;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+    padding:clamp(24px,6vw,72px) clamp(18px,6vw,24px);
+  }
+  .wrap{max-width:760px;margin:0 auto}
+
+  .eyebrow{
+    font-size:12px;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--accent);font-weight:600;margin-bottom:14px;
+  }
+  h1{
+    font-family:'Fraunces',serif;
+    font-weight:500;
+    font-size:clamp(34px,7vw,56px);
+    line-height:1.05;
+    letter-spacing:-.02em;
+    margin-bottom:18px;
+  }
+  h1 em{font-style:italic;color:var(--accent)}
+  .lede{
+    font-size:clamp(16px,2.4vw,18px);
+    color:var(--muted);
+    max-width:58ch;
+    margin-bottom:40px;
+  }
+
+  /* ---- the demo card (signature element) ---- */
+  .demo{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:18px;
+    padding:clamp(20px,4vw,34px);
+    box-shadow:0 1px 2px rgba(42,39,35,.04),0 12px 32px -12px rgba(42,39,35,.12);
+  }
+  .demo-head{
+    display:flex;align-items:baseline;justify-content:space-between;
+    gap:12px;flex-wrap:wrap;margin-bottom:22px;
+  }
+  .demo-head h2{font-family:'Fraunces',serif;font-weight:500;font-size:20px}
+  .controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .controls span{font-size:13px;color:var(--muted)}
+  .chip{
+    font-family:'JetBrains Mono',monospace;font-size:13px;
+    background:var(--bg);border:1px solid var(--line);color:var(--ink);
+    border-radius:8px;padding:6px 11px;cursor:pointer;transition:.15s;
+  }
+  .chip:hover{border-color:var(--accent);color:var(--accent)}
+  .chip.active{background:var(--accent);border-color:var(--accent);color:#fff}
+
+  svg{width:100%;height:auto;display:block}
+  .lane-bg{fill:var(--lane)}
+  .lane-label{fill:var(--muted);font-family:'JetBrains Mono',monospace;font-size:11px}
+  .node rect{fill:var(--surface);stroke:var(--line);stroke-width:1.5;transition:.25s}
+  .node text{fill:var(--ink);font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:500}
+  .edge{stroke:var(--line);stroke-width:2;fill:none;transition:.25s}
+  .node.visited rect{stroke:var(--accent);stroke-width:2;fill:var(--accent-soft)}
+  .node.found rect{fill:var(--accent);stroke:var(--accent)}
+  .node.found text{fill:#fff}
+  .edge.path{stroke:var(--accent);stroke-width:2.5}
+  .sentinel rect{fill:var(--bg);stroke-dasharray:3 3}
+  .status{
+    margin-top:18px;font-size:14px;color:var(--muted);min-height:20px;
+  }
+  .status b{color:var(--accent);font-family:'JetBrains Mono',monospace}
+
+  /* ---- prose + table ---- */
+  .body{margin-top:48px}
+  .body h3{
+    font-family:'Fraunces',serif;font-weight:500;font-size:22px;
+    margin-bottom:10px;letter-spacing:-.01em;
+  }
+  .body p{color:var(--muted);margin-bottom:14px;max-width:62ch}
+  .body p strong{color:var(--ink);font-weight:600}
+
+  table{width:100%;border-collapse:collapse;margin-top:28px;font-size:15px}
+  caption{text-align:left;font-size:13px;color:var(--muted);margin-bottom:10px}
+  th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line)}
+  thead th{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  td:first-child{font-weight:500}
+  td.big{font-family:'JetBrains Mono',monospace;color:var(--accent)}
+
+  footer{margin-top:48px;font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:18px}
+
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="eyebrow">Data Structures</p>
+  <h1>The <em>skip list</em></h1>
+  <p class="lede">A sorted linked list with built-in shortcuts. Extra "express lanes" let a search hop over big chunks of the list, turning a slow O(n) walk into an O(log&nbsp;n) glide — without the bookkeeping of a balanced tree.</p>
+
+  <!-- SIGNATURE: interactive search demo -->
+  <div class="demo">
+    <div class="demo-head">
+      <h2>Search a value</h2>
+      <div class="controls">
+        <span>Find:</span>
+        <button class="chip" data-target="7">7</button>
+        <button class="chip" data-target="17">17</button>
+        <button class="chip" data-target="25">25</button>
+        <button class="chip" data-target="22">22</button>
+      </div>
+    </div>
+    <svg id="sl" viewBox="0 0 700 250" role="img" aria-label="Skip list search animation"></svg>
+    <p class="status" id="status">Pick a value above to watch the search drop through the lanes.</p>
+  </div>
+
+  <div class="body">
+    <h3>How it works</h3>
+    <p>Every value lives on the <strong>bottom lane</strong>, a normal sorted linked list. When a node is inserted, a coin is flipped repeatedly — each heads promotes it one lane higher. So roughly half the nodes reach lane 1, a quarter reach lane 2, and so on.</p>
+    <p>Searching starts <strong>top-left</strong> and moves right while the next value is still ≤ the target. When the next value overshoots, it <strong>drops down a lane</strong> and keeps going. The high lanes skip past most of the list; the bottom lane confirms the exact match.</p>
+
+    <table>
+      <caption>Average-case cost on n elements</caption>
+      <thead>
+        <tr><th>Operation</th><th>Time</th><th>Note</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Search</td><td class="big">O(log n)</td><td>Expected, via the express lanes</td></tr>
+        <tr><td>Insert</td><td class="big">O(log n)</td><td>Search, then random promotion</td></tr>
+        <tr><td>Delete</td><td class="big">O(log n)</td><td>Relink each lane it appears on</td></tr>
+        <tr><td>Space</td><td class="big">O(n)</td><td>~2 pointers per node on average</td></tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top:36px">Why use one</h3>
+    <p>It matches a balanced binary search tree's speed but is far <strong>simpler to implement</strong> — no rotations or rebalancing, just coin flips. The randomness makes it naturally easy to write <strong>concurrent</strong> versions, which is why it shows up in systems like Redis sorted sets and many in-memory databases.</p>
+  </div>
+
+  <footer>An interactive explainer of the skip list data structure.</footer>
+</div>
+
+<script>
+// --- Skip list layout data ---------------------------------------------
+// Bottom lane holds all values; higher lanes are the express lanes.
+const VALUES = [3,7,12,17,19,22,25,31];
+const LANES = [
+  [-1,17,25],            // lane 2 (top)   -1 = head sentinel
+  [-1,7,17,22,25],       // lane 1
+  [-1,3,7,12,17,19,22,25,31] // lane 0 (bottom, all values)
+];
+
+const svg = document.getElementById('sl');
+const statusEl = document.getElementById('status');
+const NS='http://www.w3.org/2000/svg';
+const W=700, laneH=64, top=18, nodeW=44, nodeH=30, gap=22;
+
+// x-position per value, shared across lanes so columns align
+const allVals = LANES[LANES.length-1];
+const xOf = {};
+allVals.forEach((v,i)=> xOf[v] = 30 + i*(nodeW+gap));
+
+function el(tag,attrs){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);return e;}
+const nodeRefs = {}; // `${lane}:${val}` -> group
+
+function draw(){
+  svg.innerHTML='';
+  // lane backgrounds + labels
+  LANES.forEach((lane,li)=>{
+    const y = top + li*laneH;
+    svg.appendChild(el('rect',{x:8,y:y-7,width:W-16,height:nodeH+14,rx:10,class:'lane-bg',opacity:.45}));
+    const lbl = el('text',{x:W-14,y:y+nodeH/2+4,'text-anchor':'end',class:'lane-label'});
+    lbl.textContent = 'lane '+(LANES.length-1-li);
+    svg.appendChild(lbl);
+  });
+  // edges first (under nodes)
+  LANES.forEach((lane,li)=>{
+    const y = top + li*laneH + nodeH/2;
+    for(let i=0;i<lane.length-1;i++){
+      const a=lane[i], b=lane[i+1];
+      const xa = a===-1 ? 16 : xOf[a]+nodeW;
+      const xb = xOf[b];
+      const e = el('line',{x1:xa,y1:y,x2:xb,y2:y,class:'edge'});
+      e.dataset.lane=li; e.dataset.from=a; e.dataset.to=b;
+      svg.appendChild(e);
+    }
+  });
+  // nodes on top
+  LANES.forEach((lane,li)=>{
+    const y = top + li*laneH;
+    lane.forEach(v=>{
+      const g = el('g',{class:'node'+(v===-1?' sentinel':'')});
+      const x = v===-1 ? -8 : xOf[v];
+      const w = v===-1 ? 24 : nodeW;
+      g.appendChild(el('rect',{x:x,y:y,width:w,height:nodeH,rx:7}));
+      const t = el('text',{x:x+w/2,y:y+nodeH/2+5,'text-anchor':'middle'});
+      t.textContent = v===-1 ? '↦' : v;
+      g.appendChild(t);
+      svg.appendChild(g);
+      nodeRefs[li+':'+v]=g;
+    });
+  });
+}
+draw();
+
+function clearHighlights(){
+  svg.querySelectorAll('.node').forEach(n=>n.classList.remove('visited','found'));
+  svg.querySelectorAll('.edge').forEach(e=>e.classList.remove('path'));
+}
+
+// Build the actual search path through the lanes
+function searchPath(target){
+  const steps=[]; // {lane, val}
+  let li=0, idx=0;
+  while(li<LANES.length){
+    const lane=LANES[li];
+    steps.push({lane:li,val:lane[idx]});
+    // advance right while next <= target
+    while(idx+1<lane.length && lane[idx+1]<=target){
+      idx++;
+      steps.push({lane:li,val:lane[idx]});
+    }
+    if(lane[idx]===target) return {steps,found:true};
+    // drop down: find idx of same value in lane below
+    if(li===LANES.length-1) break;
+    const below=LANES[li+1];
+    const cur=lane[idx];
+    idx=below.indexOf(cur); // sentinel(-1) is index 0 in every lane
+    if(idx<0) idx=0;
+    li++;
+  }
+  return {steps,found:false};
+}
+
+let timer=null;
+function run(target){
+  if(timer) clearInterval(timer);
+  clearHighlights();
+  document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('active',+c.dataset.target===target));
+  const {steps,found}=searchPath(target);
+  statusEl.innerHTML='Searching for <b>'+target+'</b> …';
+  let i=0, prev=null;
+  const reduced = window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+  const tick=()=>{
+    if(i>=steps.length){
+      clearInterval(timer);
+      const last=steps[steps.length-1];
+      if(found){
+        nodeRefs[last.lane+':'+last.val].classList.add('found');
+        statusEl.innerHTML='Found <b>'+target+'</b> in '+steps.length+' hops — never touched most of the list.';
+      }else{
+        statusEl.innerHTML='<b>'+target+'</b> is not in the list. The walk stopped at the closest smaller value.';
+      }
+      return;
+    }
+    const s=steps[i];
+    const g=nodeRefs[s.lane+':'+s.val];
+    g.classList.add('visited');
+    if(prev && prev.lane===s.lane){
+      // mark edge between prev.val and s.val on this lane
+      svg.querySelectorAll('.edge').forEach(e=>{
+        if(+e.dataset.lane===s.lane && +e.dataset.from===prev.val && +e.dataset.to===s.val)
+          e.classList.add('path');
+      });
+    }
+    prev=s; i++;
+  };
+  if(reduced){ while(i<steps.length) tick(); }
+  else timer=setInterval(tick,520);
+}
+
+document.querySelectorAll('.chip').forEach(c=>{
+  c.addEventListener('click',()=>run(+c.dataset.target));
+});
+</script>
+</body>
+</html>
